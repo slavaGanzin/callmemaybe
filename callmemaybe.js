@@ -43,8 +43,8 @@ const server = dns2.createServer({
     if (c ) {
       response.answers.push({
         name: question.name,
-        type: Packet.TYPE.A,
-        class: Packet.CLASS.IN,
+        type: dns2.Packet.TYPE.A,
+        class: dns2.Packet.CLASS.IN,
         // ttl: 300,
         address: c.ip
       });
