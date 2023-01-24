@@ -20,6 +20,12 @@ Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
 
 localhost:
   ip: 127.0.0.1
+
+# hostname:             #hostname of your action
+#   ip:                 #what ip hostname resolve to
+#   healthcheck:        #any command that checks that project is up and there is no need to run something to start it
+#   command:            #command that starts your project
+#   folder:             #folder where command will be running
 `)
 )))
 .then(reloadConfig)

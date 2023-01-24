@@ -2,7 +2,7 @@
 
 [![callmemaybe](https://media3.giphy.com/media/kGdRnb1kF4OmQ/giphy.gif?cid=ecf05e472pq6o5ggg6vq0w1b88g3221a7cevv2orxgm6rva7&rid=giphy.gif&ct=g)](https://www.youtube.com/watch?v=fWNaR-rxAic&t=86s)
 
-local DNS server that launches commands if you ask for specific URL.
+single binary local DNS server that launch commands if you ask for specific URL.
 
 ## Why?
 
@@ -12,6 +12,11 @@ So I wanted to open `http://project1.local` in browser and project1 will be up a
 ## Installation
 ```bash
 curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
+```
+
+## Usage
+```bash
+sudo callmemaybe
 ```
 
 ## What can you do with it?
@@ -37,6 +42,11 @@ Edit `~/.config/callmemaybe.yaml` to add your projects and hosts.
 BTW, configuration reloads every second - no need to restart callmemaybe everytime you make a change.
 
 ```yaml
+settings:
+  resolvers: ~ # defaults to system resolvers
+#   - 1.1.1.1
+#   - 8.8.8.8
+
 hostname:               #hostname of your action
     ip:                 #what ip hostname resolve to
     healthcheck:        #any command that checks that project is up and there is no need to run something to start it
