@@ -4,26 +4,42 @@
 
 local DNS server that launches commands if you ask for specific URL.
 
-
 ## Why?
 
-I have a lot of projects. Switching between them is a pain: some of them use docker, some are started from systemd, some just from cli with speciefic params.
-So I wanted to open project1.local in browser and it will be up automagically: no need to run something.
+I have a lot of projects. Switching between them is a pain: some of them use docker, some are started from systemd, some just from cli with arbitrary params. A lot to deal with
+So I wanted to open `http://project1.local` in browser and project1 will be up automagically: no need to run something.
+
+## Installation
+```bash
+curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
+```
 
 ## What can you do with it?
-A lot. For example you could switch branches of your project just opening url in browser.
+
+#### Switch between project branches
+```yaml
+project1.local:
+  ip: 127.0.0.1
+  folder: /path/to/project
+  command: git checkout main; docker-compose down; docker-compose up -d
+  healthcheck: curl 127.0.0.1
+
+develop.project1.local:
+  ip: 127.0.0.1
+  folder: /path/to/project
+  command: git checkout develop; docker-compose down; docker-compose up -d
+  healthcheck: curl 127.0.0.1
+```
+
+## Config
+
+Edit `~/.config/callmemaybe.yaml` to add your projects and hosts.
+BTW, configuration reloads every second - no need to restart callmemaybe everytime you make a change.
 
 ```yaml
-
-  project1.local:
-    ip: 127.0.0.1
-    folder: /path/to/project
-    command: git checkout main; docker-compose down; docker-compose up -d
-    healthcheck: curl 127.0.0.1
-
-  develop.project1.local:
-    ip: 127.0.0.1
-    folder: /path/to/project
-    command: git checkout develop; docker-compose down; docker-compose up -d
-    healthcheck: curl 127.0.0.1
+hostname:               #hostname of your action
+    ip:                 #what ip hostname resolve to
+    healthcheck:        #any command that checks that project is up and there is no need to run something to start it
+    command:            #command that starts your project
+    folder:             #folder where command will be running
 ```
