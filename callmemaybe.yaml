@@ -1,0 +1,15 @@
+static:
+  static.test:
+    ip: 127.0.0.1
+
+  radio.listener:
+    ip: 127.0.0.1
+    folder: /home/vganzin/work/radio/listener
+    command: docker-compose up -d
+    healthcheck: curl 127.0.0.1
+
+  personalshares.local:
+    ip: 127.0.0.1
+    folder: /home/vganzin/work/PersonalShares
+    command: docker-compose up -d
+    healthcheck: curl 127.0.0.1

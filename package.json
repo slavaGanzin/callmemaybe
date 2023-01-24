@@ -1,0 +1,23 @@
+{
+  "name": "dnsrunner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slavaGanzin/dns-runner.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/slavaGanzin/dns-runner/issues"
+  },
+  "homepage": "https://github.com/slavaGanzin/dns-runner#readme",
+  "dependencies": {
+    "dns2": "^2.0.5",
+    "yaml": "^2.2.1"
+  }
+}
