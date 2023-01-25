@@ -2,7 +2,8 @@
 
 [![callmemaybe](https://media3.giphy.com/media/kGdRnb1kF4OmQ/giphy.gif?cid=ecf05e472pq6o5ggg6vq0w1b88g3221a7cevv2orxgm6rva7&rid=giphy.gif&ct=g)](https://www.youtube.com/watch?v=fWNaR-rxAic&t=86s)
 
-single binary local DNS server that launch commands if you ask for specific URL.
+*URL as an interface*
+Single binary local DNS server that launch commands if you ask for specific URL
 
 ## Why?
 

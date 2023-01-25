@@ -1,11 +1,33 @@
 #!/usr/bin/env node-dev
 
 let config = {}
+for (const f in require('ramda'))
+  global[f] = require('ramda')[f]
 const {readFile, writeFile} = require('fs').promises
+const notifier = require('node-notifier')
 const yaml = require('yaml')
 const dns2 = require('dns2');
 const {homedir} = require('os')
-const {exec} = require('child_process')
+const {promisify} = require('util')
+const exec = promisify(require('child_process').exec)
+
+const pp = x =>
+  process.stdout.write(yaml.stringify(x || {}))
+
+const pe = x =>
+  process.stderr.write(yaml.stringify(x || {}))
+
+dns2.pp = x => console.log(join('\n',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
+
+const execPP = (c,o) => {
+  pp({c, o})
+  return exec(c,o)
+}
+
+const notify = (message, title='') => notifier.notify({
+  title: `callmemaybe${title?': '+title:''}` ,
+  message: yaml.stringify(message),
+})
 
 const CONFIG_FILES = [`${homedir()}/.config/callmemaybe.yaml`]
 
@@ -14,18 +36,22 @@ const reloadConfig = async () =>
 
 Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
   writeFile(x, `settings:
-  resolvers: ~ # defaults to system resolvers
+# resolvers:
 #   - 1.1.1.1
 #   - 8.8.8.8
+# defaults to system resolvers
+  resolvers: ~
 
+#loopback
 localhost:
   ip: 127.0.0.1
 
-# hostname:             #hostname of your action
-#   ip:                 #what ip hostname resolve to
-#   healthcheck:        #any command that checks that project is up and there is no need to run something to start it
-#   command:            #command that starts your project
-#   folder:             #folder where command will be running
+# Params and default values
+# hostname:                     #hostname of your action
+#   ip:          127.0.0.1      #what ip hostname resolve to.
+#   healthcheck: ~              #any command that checks that project is up, so there is no need to run start command
+#   start:       ~              #command that starts your project
+#   folder:      ~              #folder where command will be running
 `)
 )))
 .then(reloadConfig)
@@ -34,33 +60,28 @@ localhost:
 const server = dns2.createServer({
   udp: true,
   handle: async (request, send, rinfo) => {
-    //    console.log(request)
     const response = dns2.Packet.createResponseFromRequest(request);
     const [ question ] = request.questions;
-
     const c = config[question.name]
-    console.log(c)
-    if (c ) {
+
+    pp(c)
+    if (c) {
       response.answers.push({
         name: question.name,
         type: dns2.Packet.TYPE.A,
         class: dns2.Packet.CLASS.IN,
-        // ttl: 300,
-        address: c.ip
+        ttl: 10,
+        address: c.ip || '127.0.0.1'
       });
-     exec(c.healthcheck, {cwd: c.folder, stdio: 'inherit'}, (err, stdout, stderr) => {
-       send(response)
-
-       if (err) {
-         if (c.command) {
-            console.log(exec(c.command, {cwd: c.folder, stdio: 'inherit'}), (err, stdout, stderr) => {
-              console.error(err)
-            })
-         }
+     await execPP(c.healthcheck, {cwd: c.folder, stdio: 'inherit'})
+     .then(pp)
+     .catch(({stdout, stderr}) => {
+       if (c.start) {
+          execPP(c.start, {cwd: c.folder, stdio: 'inherit'}).then(pp).catch(({stderr}) => notify(stderr, question.name + ' ' + c.start + ' error'))
        }
-      })
+     })
 
-      return
+     return send(response)
     }
 
     const resolve = dns2.TCPClient({
@@ -73,7 +94,7 @@ const server = dns2.createServer({
     response.header.arcount = lookup.header.arcount
     response.header.z = lookup.header.z
     response.header.ra = lookup.header.ra
-    console.log(response)
+    dns2.pp(response)
     send(response)
     // console.log(response, response2)
     // console.log(question, response, rinfo)
@@ -81,20 +102,20 @@ const server = dns2.createServer({
   }
 });
 
-server.on('request', (request, response, rinfo) => {
-  console.log(request.header.id, request.questions[0]);
-});
+// server.on('request', (request, response, rinfo) => {
+//   console.log(request.header.id, request.questions[0]);
+// });
 
 server.on('requestError', (error) => {
   console.log('Client sent an invalid request', error);
 });
 
 server.on('listening', () => {
-  console.log(server.addresses());
+  pp(server.addresses());
 });
 
 server.on('close', () => {
-  console.log('server closed');
+  pp('server closed');
 });
 
 server.listen({
