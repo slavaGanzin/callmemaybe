@@ -52,16 +52,21 @@ const reloadConfig = async () =>
 
 Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
   writeFile(x, `settings:
-# resolvers:
-#   - 1.1.1.1
-#   - 8.8.8.8
-# defaults to system resolvers
+  udp:
+    port: 53
+    address: 0.0.0.0
+    type: "udp4"  #(Must be either "udp4" or "udp6")
+  tcp:
+    port: 53
+    address: 0.0.0.0
+    type: "udp4"  #(Must be either "udp4" or "udp6")
+
+# Array of dns resolvers. defaults to system resolvers
   resolvers: ~
 
 #loopback
 localhost:
   ip: 127.0.0.1
-
 
 # Params and default values
 # hostname:                     #hostname of your action
@@ -78,6 +83,7 @@ test.callmemaybe:
 )))
 .then(reloadConfig)
 .then(() => setInterval(reloadConfig, 1000))
+.then(() => {
 
 let running = []
 
@@ -135,45 +141,24 @@ const server = dns2.createServer({
     response.header.z = lookup.header.z
     response.header.ra = lookup.header.ra
     dns2.pp(response)
-    send(response)
-    // console.log(response, response2)
-    // console.log(question, response, rinfo)
-    // send(response);
   }
-});
+})
 
 // server.on('request', (request, response, rinfo) => {
 //   console.log(request.header.id, request.questions[0]);
 // });
 
-server.on('requestError', (error) => {
-  console.log('Client sent an invalid request', error);
-});
+.on('requestError', (error) => {
+  console.log('Client sent an invalid request', error)
+})
 
-server.on('listening', () => {
-  pp(server.addresses());
-});
+.on('listening', () => {
+  pp({listening: server.addresses()})
+})
 
-server.on('close', () => {
+.on('close', () => {
   pp('server closed');
-});
+})
 
-server.listen({
-  // Optionally specify port, address and/or the family of socket() for udp server:
-  udp: {
-    port: 53,
-    // address: "127.0.0.1",
-    address: "0.0.0.0",
-    type: "udp4",  // IPv4 or IPv6 (Must be either "udp4" or "udp6")
-  },
-
-  // Optionally specify port and/or address for tcp server:
-  tcp: {
-    port: 53,
-    address: "0.0.0.0",
-    // address: "127.0.0.1",
-  },
-});
-
-// eventually
-// server.close();
+server.listen(config.settings)
+})
