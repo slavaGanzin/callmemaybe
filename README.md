@@ -21,10 +21,18 @@ curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
 ```bash
 sudo callmemaybe
 ```
-Test that everything working:
+
+Default config contains:
+```yaml
+test.callmemaybe:
+  start: callmemaybe --test
+```
+
+So test that everything is working:
 ```bash
 curl test.callmemaybe
-# you should see a notification
+# or open it in browser
+chromium http://test.callmemaybe
 ```
 
 ## What can you do with it?

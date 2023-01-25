@@ -18,6 +18,7 @@
   "homepage": "https://github.com/slavaGanzin/dns-runner#readme",
   "dependencies": {
     "commander": "^10.0.0",
+    "daemonize-process": "^3.0.0",
     "dns2": "^2.0.5",
     "node-notifier": "^10.0.1",
     "ramda": "^0.28.0",

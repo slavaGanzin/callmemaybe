@@ -4,18 +4,23 @@ let config = {}
 for (const f in require('ramda'))
   global[f] = require('ramda')[f]
 const {readFile, writeFile} = require('fs').promises
-const notifier = require('node-notifier')
 const yaml = require('yaml')
 const dns2 = require('dns2');
 const {homedir} = require('os')
 const {promisify} = require('util')
 const exec = promisify(require('child_process').exec)
 const http = require('http')
+const daemonizeProcess = require('daemonize-process');
 
-const notify = (message, title='') => notifier.notify({
-  title: `callmemaybe${title?': '+title:''}` ,
-  message: yaml.stringify(message),
-})
+const onetimeServer = (message, title) => {
+  const server = http.createServer(function (req, res) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.write(`callmemaybe: ${title}\n\n${message}`)
+    res.end()
+    console.log('one time server dead')
+    server.close()
+  }).listen(80)
+}
 
 const { program } = require('commander');
 
@@ -25,7 +30,9 @@ program
 const options = program.opts();
 
 if (options.test) {
-  notify(`It's alive!`, 'test')
+  console.log('test server started')
+  onetimeServer(`It's alive!`, 'test')
+  daemonizeProcess();
   return
 }
 
@@ -77,6 +84,8 @@ test.callmemaybe:
 .then(reloadConfig)
 .then(() => setInterval(reloadConfig, 1000))
 
+let running = []
+
 const server = dns2.createServer({
   udp: true,
   handle: async (request, send, rinfo) => {
@@ -84,7 +93,6 @@ const server = dns2.createServer({
     const [ question ] = request.questions;
     const c = config[question.name]
 
-    pp(c)
     if (c) {
       response.answers.push({
         name: question.name,
@@ -93,16 +101,35 @@ const server = dns2.createServer({
         ttl: 10,
         address: c.ip || '127.0.0.1'
       });
-     // await (c.healthcheck ? execPP(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
+     if (c.starting)
+       return send(response)
+
+     if (includes(question.name, running)) return send(response)
+     running.push(question.name)
+
+     pp({healthcheck: c.healthcheck})
+
+     await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
      // .then(pp)
-     // .catch(({stdout, stderr}) => {
+     .catch(({stdout, stderr}) => {
        if (c.start) {
-          execPP(c.start, {cwd: c.folder, stdio: 'inherit'}).then(pp).catch(({stderr}) => notify(stderr, question.name + ' ' + c.start + ' error'))
+          pp({starting: c.start})
+          exec(c.start, {cwd: c.folder, stdio: 'inherit'})
+          .then(pp)
+          .catch(({stderr}) => {
+            console.error(stderr)
+            onetimeServer(stderr, question.name + ' ' + c.start + ' error')
+          }).then(() => {
+            pp({running})
+            running = without(question.name, running)
+            pp({running})
+          })
        }
-     // })
+     })
 
      return send(response)
     }
+
 
     const resolve = dns2.TCPClient({
       dns: config.settings.resolvers[0] || dns2.getServers()[0]
