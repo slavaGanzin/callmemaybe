@@ -11,9 +11,10 @@ mask pkg
 version=`fx package.json .version`
 find bin -type f | parallel tar czf {}.tgz {}
 gh release delete v${version} --yes
-gh release create v${version} ./bin/*.tgz --title "calmmemaybe $version" --generate-notes --latest 
+gh release create v${version} ./bin/*.tgz --title "calmmemaybe $version" --generate-notes --latest
 ```
 
-
-
-
+## install
+```bash
+curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
+```

@@ -10,6 +10,24 @@ const dns2 = require('dns2');
 const {homedir} = require('os')
 const {promisify} = require('util')
 const exec = promisify(require('child_process').exec)
+const http = require('http')
+
+const notify = (message, title='') => notifier.notify({
+  title: `callmemaybe${title?': '+title:''}` ,
+  message: yaml.stringify(message),
+})
+
+const { program } = require('commander');
+
+program
+  .option('--test')
+  .parse()
+const options = program.opts();
+
+if (options.test) {
+  notify(`It's alive!`, 'test')
+  return
+}
 
 const pp = x =>
   process.stdout.write(yaml.stringify(x || {}))
@@ -24,10 +42,6 @@ const execPP = (c,o) => {
   return exec(c,o)
 }
 
-const notify = (message, title='') => notifier.notify({
-  title: `callmemaybe${title?': '+title:''}` ,
-  message: yaml.stringify(message),
-})
 
 const CONFIG_FILES = [`${homedir()}/.config/callmemaybe.yaml`]
 
@@ -46,12 +60,18 @@ Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
 localhost:
   ip: 127.0.0.1
 
+
 # Params and default values
 # hostname:                     #hostname of your action
 #   ip:          127.0.0.1      #what ip hostname resolve to.
 #   healthcheck: ~              #any command that checks that project is up, so there is no need to run start command
 #   start:       ~              #command that starts your project
 #   folder:      ~              #folder where command will be running
+
+#test endpoints. feel free to remove them
+
+test.callmemaybe:
+  start: callmemaybe --test
 `)
 )))
 .then(reloadConfig)
@@ -73,13 +93,13 @@ const server = dns2.createServer({
         ttl: 10,
         address: c.ip || '127.0.0.1'
       });
-     await execPP(c.healthcheck, {cwd: c.folder, stdio: 'inherit'})
-     .then(pp)
-     .catch(({stdout, stderr}) => {
+     // await (c.healthcheck ? execPP(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
+     // .then(pp)
+     // .catch(({stdout, stderr}) => {
        if (c.start) {
           execPP(c.start, {cwd: c.folder, stdio: 'inherit'}).then(pp).catch(({stderr}) => notify(stderr, question.name + ' ' + c.start + ' error'))
        }
-     })
+     // })
 
      return send(response)
     }
