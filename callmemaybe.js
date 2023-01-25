@@ -141,6 +141,7 @@ const server = dns2.createServer({
     response.header.z = lookup.header.z
     response.header.ra = lookup.header.ra
     dns2.pp(response)
+    send(response)
   }
 })
 
