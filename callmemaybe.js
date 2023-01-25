@@ -17,9 +17,11 @@ const onetimeServer = (message, title) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
     res.write(`callmemaybe: ${title}\n\n${message}`)
     res.end()
-    console.log('one time server dead')
-    server.close()
-  }).listen(80)
+    setTimeout(() => {
+      console.log('one time server down')
+      server.close()
+    }, 100)
+  }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
 }
 
 const { program } = require('commander');
@@ -30,7 +32,6 @@ program
 const options = program.opts();
 
 if (options.test) {
-  console.log('test server started')
   onetimeServer(`Hello, is it me you're looking for?`, 'test')
   daemonizeProcess();
   return
@@ -88,6 +89,7 @@ const server = dns2.createServer({
     const c = config[question.name]
 
     if (c) {
+      pp({matched: c, running})
       response.answers.push({
         name: question.name,
         type: dns2.Packet.TYPE.A,
@@ -95,23 +97,20 @@ const server = dns2.createServer({
         ttl: 10,
         address: c.ip || '127.0.0.1'
       });
-     if (c.starting)
-       return send(response)
 
      if (includes(question.name, running)) return send(response)
      running.push(question.name)
 
-     pp({healthcheck: c.healthcheck})
-
      await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
      // .then(pp)
-     .catch(({stdout, stderr}) => {
+     .catch(async ({stdout, stderr}) => {
        if (c.start) {
           pp({starting: c.start})
-          exec(c.start, {cwd: c.folder, stdio: 'inherit'})
+          return await exec(c.start, {cwd: c.folder, stdio: 'inherit'})
           .then(pp)
           .catch(({stderr}) => {
-            console.error(stderr)
+            pp({stderr, running})
+            running = without(question.name, running)
             onetimeServer(stderr, question.name + ' ' + c.start + ' error')
           }).then(() => {
             pp({running})
