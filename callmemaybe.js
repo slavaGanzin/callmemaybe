@@ -31,7 +31,7 @@ const options = program.opts();
 
 if (options.test) {
   console.log('test server started')
-  onetimeServer(`It's alive!`, 'test')
+  onetimeServer(`Hello, is it me you're looking for?`, 'test')
   daemonizeProcess();
   return
 }
@@ -42,13 +42,7 @@ const pp = x =>
 const pe = x =>
   process.stderr.write(yaml.stringify(x || {}))
 
-dns2.pp = x => console.log(join('\n',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
-
-const execPP = (c,o) => {
-  pp({c, o})
-  return exec(c,o)
-}
-
+dns2.pp = x => console.log(join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
 
 const CONFIG_FILES = [`${homedir()}/.config/callmemaybe.yaml`]
 
