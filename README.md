@@ -9,16 +9,33 @@ Single binary local DNS server that launch commands if you ask for specific host
 I have a lot of projects. Switching between them is a pain: some of them use docker, some are started from systemd, some just from cli with arbitrary params. Also you need to memoize that 192.168.1.1:9200 is elasticsearch in one project, and 67.122.34.55:5423 is a postgres on another. And you need to find that dreaded command that creates proxy between your production pod to your local machine.
 A lot to deal with.
 
-So I wanted to open http://project1 in browser and project1 will be up automagically: no need to run something. And then when I need to connect to database I could just use http://db.project1 as connection string and all ssh/kubernetes port forwarding would be hidden from me.
+So I wanted to open http://project1 in browser and project1 will be up automagically: no need to run something. And then when I need to connect to database I could just use http://db.project1 as connection string and all ssh/kubernetes port forwarding blabber would be hidden from me.
 
 ## Installation
 ```bash
-curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
-```
+$ curl https://i.jpillora.com/slavaGanzin/callmemaybe! | bash
+$ sudo callmemaybe
 
-## Usage
-```bash
-sudo callmemaybe
+/etc/systemd/system/callmemaybe.service created.
+
+Run it with:
+  sudo systemctl start callmemaybe
+
+For autostart run:
+  sudo systemctl enable --now callmemaybe
+
+
+/root/.config/callmemaybe.yaml created.
+
+Edit it with:
+  vim /root/.config/callmemaybe.yaml
+
+
+listening:
+  udp:
+    address: 0.0.0.0
+    family: IPv4
+    port: 53
 ```
 
 Default config contains:
