@@ -12,7 +12,7 @@ const exec = promisify(require('child_process').exec)
 const http = require('http')
 const daemonizeProcess = require('daemonize-process');
 
-const onetimeServer = (message, title) => {
+const onetimeServer = ({message, title}) => {
   const server = http.createServer(function (req, res) {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
     res.write(`callmemaybe: ${title}\n\n${message}`)
@@ -32,7 +32,7 @@ program
 const options = program.opts();
 
 if (options.test) {
-  onetimeServer(`Hello, is it me you're looking for?`, 'test')
+  onetimeServer({message: `Hello, is it me you're looking for?`, title: 'test'})
   daemonizeProcess();
   return
 }
@@ -110,17 +110,17 @@ const server = dns2.createServer({
      await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
      // .then(pp)
      .catch(async ({stdout, stderr}) => {
+      running = without(question.name, running)
+
        if (c.start) {
           pp({starting: c.start})
+
           return await exec(c.start, {cwd: c.folder, stdio: 'inherit'})
           .then(pp)
           .catch(({stderr}) => {
             pp({stderr, running})
-            running = without(question.name, running)
-            onetimeServer(stderr, question.name + ' ' + c.start + ' error')
+            onetimeServer({message: stderr, title: question.name + ' ' + c.start + ' error'})
           }).then(() => {
-            pp({running})
-            running = without(question.name, running)
             pp({running})
           })
        }
