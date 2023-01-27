@@ -1,6 +1,5 @@
 const yaml = require('yaml')
 const {readFile, writeFile, stat, mkdir, createWriteStream} = require('fs').promises
-const {homedir} = require('os')
 const stream = require('stream')
 const {promisify} = require('util')
 const fs = require('fs')

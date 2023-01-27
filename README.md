@@ -25,10 +25,10 @@ For autostart run:
   sudo systemctl enable --now callmemaybe
 
 
-/root/.config/callmemaybe.yaml created.
+/etc/callmemaybe.yaml created.
 
 Edit it with:
-  vim /root/.config/callmemaybe.yaml
+  vim /etc/callmemaybe.yaml
 
 
 listening:
