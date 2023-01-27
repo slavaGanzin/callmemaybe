@@ -41,7 +41,7 @@ const pp = x =>
 const pe = x =>
   process.stderr.write(yaml.stringify(x || {}))
 
-dns2.pp = x => console.log(join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
+dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
 
 require('./config').then(() => {
 
@@ -60,12 +60,16 @@ const server = dns2.createServer({
         name: question.name,
         type: dns2.Packet.TYPE.A,
         class: dns2.Packet.CLASS.IN,
-        ttl: 10,
+        ttl: 1,
         address: c.ip || '127.0.0.1'
       });
 
      if (includes(question.name, running)) return send(response)
-
+     // if (c.redirect) {
+     //   onetimeServer({redirect: c.redirect})
+     //   send(response)
+     //   return
+     // }
      setTimeout(() => {
        running = without(question.name, running)
        pp({running})
@@ -95,10 +99,20 @@ const server = dns2.createServer({
           })
        }
      })
-
-
     }
 
+    if (blocklist.has(question.name)) {
+      response.answers.push({
+        name: question.name,
+        type: dns2.Packet.TYPE.A,
+        class: dns2.Packet.CLASS.IN,
+        ttl: 1,
+        address: '0.0.0.0'
+      });
+      send(response)
+      dns2.pp(response, 'blocked: ')
+      return
+    }
 
     const resolve = dns2.TCPClient({
       // dns2.getServers()[0]

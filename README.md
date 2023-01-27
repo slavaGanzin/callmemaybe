@@ -68,6 +68,21 @@ develop.project1.local:
   healthcheck: curl 127.0.0.1
 ```
 
+#### use as poorman's adblock
+It's a dns server so, why not?
+
+```yaml
+blocklists:
+  - http://sbc.io/hosts/hosts #adware + spyware from https://github.com/StevenBlack/hosts#list-of-all-hosts-file-variants
+```
+
+```bash
+# before
+stats.g.doubleclick.net -> 142.250.13.157 142.250.13.156 142.250.13.154 142.250.13.155
+# after
+blocked: stats.g.doubleclick.net -> 0.0.0.0
+```
+
 ## Config
 
 Edit `~/.config/callmemaybe.yaml` to add your projects and hosts.
@@ -75,13 +90,40 @@ BTW, configuration reloads every second - no need to restart callmemaybe everyti
 
 ```yaml
 settings:
-  resolvers: ~ # defaults to system resolvers
-#   - 1.1.1.1
-#   - 8.8.8.8
+  udp:
+    port: 53
+    address: 0.0.0.0
+    type: "udp4"  #(Must be either "udp4" or "udp6")
+  tcp:
+    port: 53
+    address: 0.0.0.0
+    type: "udp4"  #(Must be either "udp4" or "udp6")
 
-hostname:               #hostname of your action
-    ip:                 #what ip hostname resolve to
-    healthcheck:        #any command that checks that project is up and there is no need to run something to start it
-    command:            #command that starts your project
-    folder:             #folder where command will be running
+  # list of standard hosts files (like one in your /etc/hosts)
+  # could be a path to a file or URL to hosts file to download
+  # all hosts will be resolved to 0.0.0.0, so it's like poorman's adblock
+  # https://en.wikipedia.org/wiki/Domain_Name_System_blocklist
+  blocklists: ~
+    # - http://sbc.io/hosts/hosts #adware + spyware from https://github.com/StevenBlack/hosts#list-of-all-hosts-file-variants
+
+
+  resolvers: ~
+
+
+#loopback
+localhost:
+  ip: 127.0.0.1
+
+# Place here your own projects/hosts.
+# Params and default values
+# hostname:                     #hostname of your action
+#   ip:          127.0.0.1      #what ip hostname resolve to.
+#   healthcheck: ~              #any command that checks that project is up, so there is no need to run start command
+#   start:       ~              #command that starts your project
+#   folder:      ~              #folder where command will be running
+
+
+#test endpoint. Feel free to remove
+test.callmemaybe:
+  start: callmemaybe --test
 ```

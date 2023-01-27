@@ -1,6 +1,12 @@
 const yaml = require('yaml')
-const {readFile, writeFile, stat} = require('fs').promises
+const {readFile, writeFile, stat, mkdir, createWriteStream} = require('fs').promises
 const {homedir} = require('os')
+const stream = require('stream')
+const {promisify} = require('util')
+const fs = require('fs')
+const got = require('got')
+
+const pipeline = promisify(stream.pipeline);
 
 const SYSTEMD = '/etc/systemd/system/callmemaybe.service'
 
@@ -30,18 +36,38 @@ For autostart run:
 `))
 )
 
-const CONFIG_FILES = [`${homedir()}/.config/callmemaybe.yaml`]
+const CONFIG_FILES = [`/etc/callmemaybe.yaml`]
 
 const deepdiff = require('deep-diff')
+
+const realoadBlocklist = () =>
+  Promise.all(map(f => {
+      const filename = f.replace(/\//g,'_')
+      return readFile(filename)
+        .catch(async () => {
+          console.log(`Loading ${f}`)
+          await pipeline(got.stream(f), fs.createWriteStream(filename))
+          return readFile(filename)
+        })
+        .then(String)
+        .then(replace(/#.*|0.0.0.0\s*|www\./gim, ''))
+        .then(split('\n'))
+    }, propOr([], 'blocklists', config.settings))
+  ).then(x => global.blocklist = new Set(flatten(x)))
 
 const reloadConfig = async () => {
   const p = when(is(Object), yaml.stringify)
   const f = CONFIG_FILES[0]
   const oldconfig = clone(config)
   config = yaml.parse(await readFile(f, 'utf8'))
-  if (!isEmpty(oldconfig)) {
-    const d = reduce((a, {path, lhs, rhs}) => assocPath(path, `${p(lhs)} -> ${p(rhs)}`, a), {}, deepdiff(oldconfig, config) || [])
-    if (!isEmpty(d)) console.log(`\n\nConfig updated:\n${yaml.stringify(d)}\n\n`)
+
+  const d = reduce((a, {path, lhs, rhs}) => assocPath(path, `${p(lhs)} -> ${p(rhs)}`, a), {}, deepdiff(oldconfig, config) || [])
+
+  if (!isEmpty(d)) {
+    realoadBlocklist()
+
+    if (!isEmpty(oldconfig))
+      console.log(`\n\nConfig updated:\n${yaml.stringify(d)}\n\n`)
   }
 }
 
@@ -56,7 +82,14 @@ module.exports = Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
     address: 0.0.0.0
     type: "udp4"  #(Must be either "udp4" or "udp6")
 
-# Array of dns resolvers. defaults to system resolvers
+  # list of standard hosts files (like one in your /etc/hosts)
+  # could be a path to a file or URL to hosts file to download
+  # all hosts will be resolved to 0.0.0.0, so it's like poorman's adblock
+  # https://en.wikipedia.org/wiki/Domain_Name_System_blocklist
+  blocklists: ~
+    # - http://sbc.io/hosts/hosts #adware + spyware from https://github.com/StevenBlack/hosts#list-of-all-hosts-file-variants
+
+
   resolvers: ~
 
 
@@ -76,8 +109,6 @@ localhost:
 #test endpoint. Feel free to remove
 test.callmemaybe:
   start: callmemaybe --test
-
-
 `).then(() => console.log(`
 
 ${x} created.
