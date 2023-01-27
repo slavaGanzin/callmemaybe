@@ -65,11 +65,21 @@ const server = dns2.createServer({
       });
 
      if (includes(question.name, running)) return send(response)
+
+     setTimeout(() => {
+       running = without(question.name, running)
+       pp({running})
+     }, 1000) //should be healthcheck start interval
      running.push(question.name)
 
      await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
+     .then(({stdout, stderr}) => {
+       running.push(question.name)
+       pp({healthcheck: 'ok', stdout, stderr})
+     })
      // .then(pp)
      .catch(async ({stdout, stderr}) => {
+      pp({healthcheck: 'fail', stdout, stderr})
       running = without(question.name, running)
 
        if (c.start) {
@@ -78,15 +88,15 @@ const server = dns2.createServer({
           return await exec(c.start, {cwd: c.folder, stdio: 'inherit'})
           .then(pp)
           .catch(({stderr}) => {
-            pp({stderr, running})
+            pp({stderr})
             onetimeServer({message: stderr, title: question.name + ' ' + c.start + ' error'})
           }).then(() => {
-            pp({running})
+            send(response)
           })
        }
      })
 
-     return send(response)
+
     }
 
 
