@@ -38,15 +38,14 @@ listening:
     port: 53
 ```
 
-Default config contains:
-```yaml
-test.callmemaybe:
-  start: callmemaybe --test
-```
-
-So test that everything is working:
+Test that everything is working:
 ```bash
-curl test.callmemaybe
+$ curl test.callmemaybe
+
+callmemaybe: test
+
+Hello, is it me youre looking for?
+
 # or open it in browser
 chromium http://test.callmemaybe
 ```
@@ -85,7 +84,7 @@ blocked: stats.g.doubleclick.net -> 0.0.0.0
 
 ## Config
 
-Edit `~/.config/callmemaybe.yaml` to add your projects and hosts.
+Edit `/etc/callmemaybe.yaml` to add your projects and hosts.
 BTW, configuration reloads every second - no need to restart callmemaybe everytime you make a change.
 
 ```yaml

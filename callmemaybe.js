@@ -1,4 +1,4 @@
-#!/usr/bin/env node-dev
+#!/usr/bin/env node
 
 global.config = {}
 for (const f in require('ramda'))
@@ -13,15 +13,19 @@ const yaml = require('yaml')
 const { program } = require('commander')
 
 const onetimeServer = ({message, title}) => {
-  const server = http.createServer(function (req, res) {
-    res.writeHead(200, { 'Content-Type': 'text/plain' })
-    res.write(`callmemaybe: ${title}\n\n${message}`)
-    res.end()
-    setTimeout(() => {
-      console.log('one time server down')
-      server.close()
-    }, 100)
-  }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
+  try {
+    const server = http.createServer(function (req, res) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      res.write(`callmemaybe: ${title}\n\n${message}`)
+      res.end()
+      setTimeout(() => {
+        console.log('one time server down')
+        server.close()
+      }, 100)
+    }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
+  } catch(e) {
+    console.error(e)
+  }
 }
 
 program
@@ -31,7 +35,7 @@ const options = program.opts();
 
 if (options.test) {
   onetimeServer({message: `Hello, is it me you're looking for?`, title: 'test'})
-  daemonizeProcess();
+  // daemonizeProcess();
   return
 }
 
@@ -65,28 +69,22 @@ const server = dns2.createServer({
       });
 
      if (includes(question.name, running)) return send(response)
-     // if (c.redirect) {
-     //   onetimeServer({redirect: c.redirect})
-     //   send(response)
-     //   return
-     // }
+     running.push(question.name)
      setTimeout(() => {
        running = without(question.name, running)
        pp({running})
      }, 1000) //should be healthcheck start interval
-     running.push(question.name)
 
      await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
      .then(({stdout, stderr}) => {
        running.push(question.name)
+       send(response)
        pp({healthcheck: 'ok', stdout, stderr})
      })
-     // .then(pp)
      .catch(async ({stdout, stderr}) => {
-      pp({healthcheck: 'fail', stdout, stderr})
-      running = without(question.name, running)
-
-       if (c.start) {
+        pp({healthcheck: 'fail', stdout, stderr})
+        running = without(question.name, running)
+        if (c.start) {
           pp({starting: c.start})
 
           return await exec(c.start, {cwd: c.folder, stdio: 'inherit'})
@@ -97,7 +95,8 @@ const server = dns2.createServer({
           }).then(() => {
             send(response)
           })
-       }
+        }
+
      })
     }
 
