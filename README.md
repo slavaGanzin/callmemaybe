@@ -52,6 +52,19 @@ chromium http://test.callmemaybe
 
 ## What can you do with it?
 
+#### Launch proxies only when you need it
+```yaml
+zerotier.host:
+  ip: [hostip]
+  start: systemctl start zerotier-one
+openvpn.host:
+  ip: [hostip]
+  start: openvpn /path/to/config.ovpn
+wireguard.host:
+  ip: [hostip]
+  start: systemctl start wg-quick@wg0
+```
+
 #### Switch between project branches
 ```yaml
 project1.local:
