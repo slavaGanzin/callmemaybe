@@ -128,7 +128,7 @@ const server = dns2.createServer({
      return await healthcheck(c, question.name)
      .catch(x => run(c.start, question.name, {cwd: c.folder}))
      .catch(({stderr, stdout}) => {
-       return run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
+       run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
        // return Promise.resolve()
      }).then(() => {
        dns2.pp(response)
