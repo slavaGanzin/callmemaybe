@@ -19,49 +19,38 @@ const execa = require('execa')
 const running = {}
 
 setInterval(() => {
-  console.log({running: Object.keys(running)})
+  // console.log({running: Object.keys(running)})
   for (const name in running) {
-    // console.log(name, running[name])
     if (running[name].exitCode != null) {
-      // console.log(name)
       delete running[name]
     }
   }
-}, 300)
+}, 100)
 
 const run = (command, name, opts) => {
+  // console.log({running})
 
-  console.log(`${name} run ${command}`)
-  // pp({run: command, name})
+  let r = running[name]
 
-  const r  = execa('bash', ['-c', command], opts)
-  if (name) {
+  if (r) {
     // console.log(running[name].killed, running[name].closed)
-    console.log(running[name] && running[name].exitCode)
-    if (running[name] && running[name].exitCode == null)  {
-      console.log('alraeedy runnint ' + name)
-      return running[name]
-    }
-    running[name] = r
+    if (opts.restart) r.kill()
+
+    console.log('already runnning ' + name)
+    return Promise.resolve(r)
   }
-  // r.stdout.pipe(process.stdout)
-  // r.stderr.pipe(process.stderr)
+
+  r  = execa('bash', ['-c', command], opts)
+  if (name) running[name] = r
+  r.stdout.pipe(process.stdout)
+  r.stderr.pipe(process.stderr)
+  // console.log({running})
   return r
 }
 
 const healthcheck = (c, name) => {
-
-  console.log(`${name} health ${c.healthcheck}`)
- // if (!c.healthcheck ) return Promise.reject()
  const r = running[name]
- if (r && r.exitCode == null) return r
-
- if (r) {
-   delete running[name]
- }
-
- const healthcheck = running[`healthcheck ${name}`]
- if (healthcheck) return healthcheck
+ if (r) return Promise.resolve(r)
 
  if (c.healthcheck)
     return run(c.healthcheck, `healthcheck ${name}`, {cwd: c.folder || '~'})
@@ -71,7 +60,6 @@ const healthcheck = (c, name) => {
 
 
 const onetimeServer = (title) => {
-  // daemonizeProcess()
   let message = ''
   let closed = false
   process.stdin.on("data", data => {
@@ -84,8 +72,12 @@ const onetimeServer = (title) => {
     const server = http.createServer(function (req, res) {
       res.writeHead(200, { 'Content-Type': 'text/plain' })
       res.write(`callmemaybe: ${title}\n\n${message}`)
-      res.end()
+      process.stdin.on("data", data => {
+        res.write(data)
+      })
+
       if (closed) setTimeout(() => {
+          res.end()
           console.log('one time server down')
           process.exit()
         }, 300)
@@ -106,9 +98,7 @@ if (options.server) {
 }
 
 const pp = x =>
-  x
-  // console.log(x)
-  // process.stdout.write(yaml.stringify(x || {}))
+  process.stdout.write(yaml.stringify(x || {}))
 
 const pe = x =>
   process.stderr.write(yaml.stringify(x || {}))
@@ -118,10 +108,6 @@ dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed(
 require('./config').then(() => {
 
 
-// setInterval(() => {
-//   pp({running})
-// }, 1000)
-
 const server = dns2.createServer({
   udp: true,
   handle: async (request, send, rinfo) => {
@@ -130,7 +116,7 @@ const server = dns2.createServer({
     const c = config[question.name]
 
     if (c) {
-      pp({matched: c, running: keys(running)})
+      pp({matched: c})
       response.answers.push({
         name: question.name,
         type: dns2.Packet.TYPE.A,
@@ -139,18 +125,15 @@ const server = dns2.createServer({
         address: c.ip || '127.0.0.1'
       });
 
-     await healthcheck(c, question.name)
-     .catch(async x => {
-        await run(c.start, question.name, {cwd: c.folder})
-        .catch(({stderr, stdout}) => {
-          console.log('failed to start')
-          run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
-            .catch(pp)
-        })
+     return await healthcheck(c, question.name)
+     .catch(x => run(c.start, question.name, {cwd: c.folder}))
+     .catch(({stderr, stdout}) => {
+       return run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
+       // return Promise.resolve()
+     }).then(() => {
+       dns2.pp(response)
+       send(response)
      })
-
-     send(response)
-     return
     }
 
     if (blocklist.has(question.name)) {
@@ -182,9 +165,9 @@ const server = dns2.createServer({
   }
 })
 
-// server.on('request', (request, response, rinfo) => {
-//   console.log(request.header.id, request.questions[0])
-// })
+server.on('request', (request, response, rinfo) => {
+  console.log(request.header.id, request.questions[0])
+})
 
 .on('requestError', (error) => {
   console.log('Client sent an invalid request', error)
