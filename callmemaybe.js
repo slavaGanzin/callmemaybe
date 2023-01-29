@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 global.config = {}
+Error.stackTraceLimit = Infinity
+
 for (const f in require('ramda'))
   global[f] = require('ramda')[f]
+
 const {readFile, writeFile} = require('fs').promises
 const dns2 = require('dns2');
 const {promisify} = require('util')
@@ -11,17 +14,82 @@ const http = require('http')
 const daemonizeProcess = require('daemonize-process')
 const yaml = require('yaml')
 const { program } = require('commander')
+const execa = require('execa')
 
-const onetimeServer = ({message, title}) => {
+const running = {}
+
+setInterval(() => {
+  console.log({running: Object.keys(running)})
+  for (const name in running) {
+    // console.log(name, running[name])
+    if (running[name].exitCode != null) {
+      // console.log(name)
+      delete running[name]
+    }
+  }
+}, 300)
+
+const run = (command, name, opts) => {
+
+  console.log(`${name} run ${command}`)
+  // pp({run: command, name})
+
+  const r  = execa('bash', ['-c', command], opts)
+  if (name) {
+    // console.log(running[name].killed, running[name].closed)
+    console.log(running[name] && running[name].exitCode)
+    if (running[name] && running[name].exitCode == null)  {
+      console.log('alraeedy runnint ' + name)
+      return running[name]
+    }
+    running[name] = r
+  }
+  // r.stdout.pipe(process.stdout)
+  // r.stderr.pipe(process.stderr)
+  return r
+}
+
+const healthcheck = (c, name) => {
+
+  console.log(`${name} health ${c.healthcheck}`)
+ // if (!c.healthcheck ) return Promise.reject()
+ const r = running[name]
+ if (r && r.exitCode == null) return r
+
+ if (r) {
+   delete running[name]
+ }
+
+ const healthcheck = running[`healthcheck ${name}`]
+ if (healthcheck) return healthcheck
+
+ if (c.healthcheck)
+    return run(c.healthcheck, `healthcheck ${name}`, {cwd: c.folder || '~'})
+
+  return Promise.reject({})
+}
+
+
+const onetimeServer = (title) => {
+  // daemonizeProcess()
+  let message = ''
+  let closed = false
+  process.stdin.on("data", data => {
+    message += data.toString()
+    process.stdout.write(message)
+  })
+  process.stdin.on('close', () => closed = true)
+
   try {
     const server = http.createServer(function (req, res) {
       res.writeHead(200, { 'Content-Type': 'text/plain' })
       res.write(`callmemaybe: ${title}\n\n${message}`)
       res.end()
-      setTimeout(() => {
-        console.log('one time server down')
-        server.close()
-      }, 100)
+      if (closed) setTimeout(() => {
+          console.log('one time server down')
+          process.exit()
+        }, 300)
+
     }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
   } catch(e) {
     console.error(e)
@@ -29,18 +97,18 @@ const onetimeServer = ({message, title}) => {
 }
 
 program
-  .option('--test')
+  .option('--server')
   .parse()
 const options = program.opts();
 
-if (options.test) {
-  onetimeServer({message: `Hello, is it me you're looking for?`, title: 'test'})
-  // daemonizeProcess();
-  return
+if (options.server) {
+  return onetimeServer('')
 }
 
 const pp = x =>
-  process.stdout.write(yaml.stringify(x || {}))
+  x
+  // console.log(x)
+  // process.stdout.write(yaml.stringify(x || {}))
 
 const pe = x =>
   process.stderr.write(yaml.stringify(x || {}))
@@ -49,7 +117,10 @@ dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed(
 
 require('./config').then(() => {
 
-let running = []
+
+// setInterval(() => {
+//   pp({running})
+// }, 1000)
 
 const server = dns2.createServer({
   udp: true,
@@ -59,7 +130,7 @@ const server = dns2.createServer({
     const c = config[question.name]
 
     if (c) {
-      pp({matched: c, running})
+      pp({matched: c, running: keys(running)})
       response.answers.push({
         name: question.name,
         type: dns2.Packet.TYPE.A,
@@ -68,36 +139,18 @@ const server = dns2.createServer({
         address: c.ip || '127.0.0.1'
       });
 
-     if (includes(question.name, running)) return send(response)
-     running.push(question.name)
-     setTimeout(() => {
-       running = without(question.name, running)
-       pp({running})
-     }, 1000) //should be healthcheck start interval
-
-     await (c.healthcheck ? exec(c.healthcheck, {cwd: c.folder || '~', stdio: 'inherit'}) : Promise.reject({}))
-     .then(({stdout, stderr}) => {
-       running.push(question.name)
-       send(response)
-       pp({healthcheck: 'ok', stdout, stderr})
+     await healthcheck(c, question.name)
+     .catch(async x => {
+        await run(c.start, question.name, {cwd: c.folder})
+        .catch(({stderr, stdout}) => {
+          console.log('failed to start')
+          run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
+            .catch(pp)
+        })
      })
-     .catch(async ({stdout, stderr}) => {
-        pp({healthcheck: 'fail', stdout, stderr})
-        running = without(question.name, running)
-        if (c.start) {
-          pp({starting: c.start})
 
-          return await exec(c.start, {cwd: c.folder, stdio: 'inherit'})
-          .then(pp)
-          .catch(({stderr}) => {
-            pp({stderr})
-            onetimeServer({message: stderr, title: question.name + ' ' + c.start + ' error'})
-          }).then(() => {
-            send(response)
-          })
-        }
-
-     })
+     send(response)
+     return
     }
 
     if (blocklist.has(question.name)) {
@@ -130,8 +183,8 @@ const server = dns2.createServer({
 })
 
 // server.on('request', (request, response, rinfo) => {
-//   console.log(request.header.id, request.questions[0]);
-// });
+//   console.log(request.header.id, request.questions[0])
+// })
 
 .on('requestError', (error) => {
   console.log('Client sent an invalid request', error)

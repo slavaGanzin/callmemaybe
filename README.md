@@ -55,13 +55,13 @@ chromium http://test.callmemaybe
 #### Launch proxies only when you need it
 ```yaml
 zerotier.host:
-  ip: [hostip]
+  ip: [host ip]
   start: systemctl start zerotier-one
 openvpn.host:
-  ip: [hostip]
+  ip: [host ip]
   start: openvpn /path/to/config.ovpn
 wireguard.host:
-  ip: [hostip]
+  ip: [host ip]
   start: systemctl start wg-quick@wg0
 ```
 
