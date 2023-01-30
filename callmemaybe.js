@@ -60,7 +60,6 @@ program.command('start')
        .catch(x => run(c.start, question.name, {cwd: c.folder}))
        .catch(({stderr, stdout}) => {
          run(`callmemaybe server --name "${question.name} error"`, 'error-server', {input: stderr+stdout})
-         // return Promise.resolve()
        }).then(() => {
          dns2.pp(response)
          send(response)
