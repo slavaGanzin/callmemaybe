@@ -95,6 +95,19 @@ stats.g.doubleclick.net -> 142.250.13.157 142.250.13.156 142.250.13.154 142.250.
 blocked: stats.g.doubleclick.net -> 0.0.0.0
 ```
 
+Or just by matching urls by hand:
+```yaml
+supershady.host:
+  ip: 0.0.0.0
+```
+
+<!-- #### Fight with your procrastination
+```yaml
+facebook.com:
+  ip: 0.0.0.0
+``` -->
+
+
 ## Config
 
 Edit `/etc/callmemaybe.yaml` to add your projects and hosts.

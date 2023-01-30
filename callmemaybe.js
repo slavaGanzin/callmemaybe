@@ -71,8 +71,10 @@ program.command('start')
          return c.healthcheck ? healthcheck(c, question.name, true) : wait(300)
        })
        .then(async () => {
-          if(c.redirect)
-            await run(`callmemaybe server --redirect ${c.redirect}`, 'redirect', {restart: true})
+          if(c.redirect) {
+            run(`callmemaybe server --redirect ${c.redirect}`, 'redirect')
+            await wait(300)
+          }
 
           dns2.pp(response)
           send(response)
