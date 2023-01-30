@@ -1,4 +1,4 @@
-#!/usr/bin/env node-dev
+#!/usr/bin/env node
 
 global.config = {}
 Error.stackTraceLimit = Infinity
@@ -12,6 +12,8 @@ const yaml = require('yaml')
 const { program } = require('commander')
 const server = require('./server')
 const {run, healthcheck} = require('./run')
+
+const wait = t => new Promise(r => setTimeout(r, t))
 
 const pp = x =>
   process.stdout.write(yaml.stringify(x || {}))
@@ -32,9 +34,9 @@ program
 
 program.command('server')
   .option('-r, --redirect <URL>')
-  .action((str, options) => {
-    return server(str)
-  })
+  .option('-t, --title <title>')
+  .parse()
+  .action((str, options) => server(str))
 
 program.command('start')
   .action(async (str, options) => {
@@ -47,23 +49,36 @@ program.command('start')
       const c = config[question.name]
 
       if (c) {
-        pp({matched: c})
+        // pp({matched: c})
         response.answers.push({
           name: question.name,
           type: dns2.Packet.TYPE.A,
           class: dns2.Packet.CLASS.IN,
           ttl: 1,
           address: c.ip || '127.0.0.1'
-        });
+        })
 
        return await healthcheck(c, question.name)
-       .catch(x => run(c.start, question.name, {cwd: c.folder}))
-       .catch(({stderr, stdout}) => {
-         run(`callmemaybe server --name "${question.name} error"`, 'error-server', {input: stderr+stdout})
-       }).then(() => {
-         dns2.pp(response)
-         send(response)
+       .catch(x => {
+         run(c.start, question.name, {cwd: c.folder})
+           .then(() => console.log(3))
+           .catch(({stderr, stdout}) => {
+             console.log('failed to start', {stderr, stdout})
+             run(`callmemaybe server --title "${question.name} error"`, 'error-server', {input: stderr+stdout, restart: true})
+              .catch(console.error)
+           })
+
+         return c.healthcheck ? healthcheck(c, question.name, true) : wait(300)
        })
+       .then(async () => {
+          if(c.redirect)
+            await run(`callmemaybe server --redirect ${c.redirect}`, 'redirect', {restart: true})
+
+          dns2.pp(response)
+          send(response)
+
+
+        })
       }
 
       if (blocklist.has(question.name)) {
@@ -96,7 +111,7 @@ program.command('start')
   })
 
   server.on('request', (request, response, rinfo) => {
-    console.log(request.header.id, request.questions[0])
+    // console.log(request.header.id, request.questions[0])
   })
 
   .on('requestError', (error) => {

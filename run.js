@@ -10,15 +10,18 @@ setInterval(() => {
   }
 }, 100)
 
-const run = (command, name, opts) => {
-  // console.log({running})
+const run = (command, name, opts = {}) => {
+  console.log({run: command, name, opts})
 
   let r = running[name]
 
-  if (r) {
-    // console.log(running[name].killed, running[name].closed)
-    if (opts.restart) r.kill()
+  if (opts.restart && r) {
+    r.kill()
+    delete running[name]
+    r = null
+  }
 
+  if (r) {
     console.log('already runnning ' + name)
     return Promise.resolve(r)
   }
@@ -31,12 +34,16 @@ const run = (command, name, opts) => {
   return r
 }
 
-const healthcheck = (c, name) => {
+const healthcheck = (c, name, wait) => {
  const r = running[name]
- if (r) return Promise.resolve(r)
+ if (r) return Promise.resolve()
 
  if (c.healthcheck)
     return run(c.healthcheck, `healthcheck ${name}`, {cwd: c.folder || '~'})
+      .catch(e => {
+        if (wait) return healthcheck(c, name, wait)
+        throw e
+      })
 
   return Promise.reject({})
 }
