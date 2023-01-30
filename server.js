@@ -19,11 +19,12 @@ module.exports = ({title = '', redirect}) => {
         res.write(data)
       })
 
-      if (closed) setTimeout(() => {
-          res.end()
-          console.log('one time server down')
-          process.exit()
-        }, 300)
+      setInterval(() => {
+        if (!closed) return
+        res.end()
+        console.log('one time server down')
+        process.exit()
+      }, 100)
 
     }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
   } catch(e) {
