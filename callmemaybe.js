@@ -16,6 +16,14 @@ const yaml = require('yaml')
 const { program } = require('commander')
 const execa = require('execa')
 
+const pp = x =>
+  process.stdout.write(yaml.stringify(x || {}))
+
+const pe = x =>
+  process.stderr.write(yaml.stringify(x || {}))
+
+dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
+
 const running = {}
 
 setInterval(() => {
@@ -59,10 +67,11 @@ const healthcheck = (c, name) => {
 }
 
 
-const onetimeServer = (title) => {
+const onetimeServer = ({title = '', redirect}) => {
   let message = ''
-  let closed = false
+  let closed = true
   process.stdin.on("data", data => {
+    closed = false
     message += data.toString()
     process.stdout.write(message)
   })
@@ -71,6 +80,7 @@ const onetimeServer = (title) => {
   try {
     const server = http.createServer(function (req, res) {
       res.writeHead(200, { 'Content-Type': 'text/plain' })
+      if (redirect) res.writeHead(302, {'Location': redirect });
       res.write(`callmemaybe: ${title}\n\n${message}`)
       process.stdin.on("data", data => {
         res.write(data)
@@ -89,97 +99,95 @@ const onetimeServer = (title) => {
 }
 
 program
-  .option('--server')
-  .parse()
-const options = program.opts();
+  .name('callmemaybe')
+  .description('Local DNS server that launch commands if you ask for specific hostname')
+  .version(require('./package.json').version)
 
-if (options.server) {
-  return onetimeServer('')
-}
+if (process.argv.length === 2) process.argv.push('start')
 
-const pp = x =>
-  process.stdout.write(yaml.stringify(x || {}))
+program.command('server')
+  .option('-r, --redirect <URL>')
+  .action((str, options) => {
+    return onetimeServer(str)
+  })
 
-const pe = x =>
-  process.stderr.write(yaml.stringify(x || {}))
+program.command('start')
+  .action(async (str, options) => {
+  await require('./config')
+  const server = dns2.createServer({
+    udp: true,
+    handle: async (request, send, rinfo) => {
+      const response = dns2.Packet.createResponseFromRequest(request);
+      const [ question ] = request.questions;
+      const c = config[question.name]
 
-dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
+      if (c) {
+        pp({matched: c})
+        response.answers.push({
+          name: question.name,
+          type: dns2.Packet.TYPE.A,
+          class: dns2.Packet.CLASS.IN,
+          ttl: 1,
+          address: c.ip || '127.0.0.1'
+        });
 
-require('./config').then(() => {
+       return await healthcheck(c, question.name)
+       .catch(x => run(c.start, question.name, {cwd: c.folder}))
+       .catch(({stderr, stdout}) => {
+         run(`callmemaybe server --name "${question.name} error"`, 'error-server', {input: stderr+stdout})
+         // return Promise.resolve()
+       }).then(() => {
+         dns2.pp(response)
+         send(response)
+       })
+      }
 
+      if (blocklist.has(question.name)) {
+        response.answers.push({
+          name: question.name,
+          type: dns2.Packet.TYPE.A,
+          class: dns2.Packet.CLASS.IN,
+          ttl: 1,
+          address: '0.0.0.0'
+        });
+        send(response)
+        dns2.pp(response, 'blocked: ')
+        return
+      }
 
-const server = dns2.createServer({
-  udp: true,
-  handle: async (request, send, rinfo) => {
-    const response = dns2.Packet.createResponseFromRequest(request);
-    const [ question ] = request.questions;
-    const c = config[question.name]
-
-    if (c) {
-      pp({matched: c})
-      response.answers.push({
-        name: question.name,
-        type: dns2.Packet.TYPE.A,
-        class: dns2.Packet.CLASS.IN,
-        ttl: 1,
-        address: c.ip || '127.0.0.1'
-      });
-
-     return await healthcheck(c, question.name)
-     .catch(x => run(c.start, question.name, {cwd: c.folder}))
-     .catch(({stderr, stdout}) => {
-       run(`/home/vganzin/work/callmemaybe/callmemaybe.js --server`, 'error-server', {input: stderr+stdout})
-       // return Promise.resolve()
-     }).then(() => {
-       dns2.pp(response)
-       send(response)
-     })
-    }
-
-    if (blocklist.has(question.name)) {
-      response.answers.push({
-        name: question.name,
-        type: dns2.Packet.TYPE.A,
-        class: dns2.Packet.CLASS.IN,
-        ttl: 1,
-        address: '0.0.0.0'
-      });
+      const resolve = dns2.TCPClient({
+        // dns2.getServers()[0]
+        dns: pathOr('1.1.1.1', ['settings', 'resolvers', 0], config)
+      })
+      const { name } = question;
+      const lookup = await resolve(question.name)
+      response.answers = lookup.answers
+      response.header.ancount = lookup.header.ancount
+      response.header.arcount = lookup.header.arcount
+      response.header.z = lookup.header.z
+      response.header.ra = lookup.header.ra
+      dns2.pp(response)
       send(response)
-      dns2.pp(response, 'blocked: ')
-      return
     }
+  })
 
-    const resolve = dns2.TCPClient({
-      // dns2.getServers()[0]
-      dns: pathOr('1.1.1.1', ['settings', 'resolvers', 0], config)
-    })
-    const { name } = question;
-    const lookup = await resolve(question.name)
-    response.answers = lookup.answers
-    response.header.ancount = lookup.header.ancount
-    response.header.arcount = lookup.header.arcount
-    response.header.z = lookup.header.z
-    response.header.ra = lookup.header.ra
-    dns2.pp(response)
-    send(response)
-  }
+  server.on('request', (request, response, rinfo) => {
+    console.log(request.header.id, request.questions[0])
+  })
+
+  .on('requestError', (error) => {
+    console.log('Client sent an invalid request', error)
+  })
+
+  .on('listening', () => {
+    pp({listening: server.addresses()})
+  })
+
+  .on('close', () => {
+    pp('server closed');
+  })
+
+  server.listen(config.settings)
 })
 
-server.on('request', (request, response, rinfo) => {
-  console.log(request.header.id, request.questions[0])
-})
-
-.on('requestError', (error) => {
-  console.log('Client sent an invalid request', error)
-})
-
-.on('listening', () => {
-  pp({listening: server.addresses()})
-})
-
-.on('close', () => {
-  pp('server closed');
-})
-
-server.listen(config.settings)
-})
+program.parse()
