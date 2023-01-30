@@ -137,5 +137,5 @@ localhost:
 
 #test endpoint. Feel free to remove
 test.callmemaybe:
-  start: callmemaybe --test
+  start: echo "Hello, is it me you looking for?" | callmemaybe server
 ```

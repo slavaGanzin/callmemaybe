@@ -88,26 +88,26 @@ module.exports = Promise.all(CONFIG_FILES.map(x => readFile(x).catch(() =>
   blocklists: ~
     # - http://sbc.io/hosts/hosts #adware + spyware from https://github.com/StevenBlack/hosts#list-of-all-hosts-file-variants
 
-
   resolvers: ~
 
 
 #loopback
-localhost:
-  ip: 127.0.0.1
+localhost: ~
 
-# Place here your own projects/hosts.
-# Params and default values
+#equals to:
+#localhost:
+#   ip: 127.0.0.1
+
+# Place here your own projects/hosts
 # hostname:                     #hostname of your action
 #   ip:          127.0.0.1      #what ip hostname resolve to.
 #   healthcheck: ~              #any command that checks that project is up, so there is no need to run start command
 #   start:       ~              #command that starts your project
 #   folder:      ~              #folder where command will be running
 
-
 #test endpoint. Feel free to remove
 test.callmemaybe:
-  start: callmemaybe --test
+  start: echo "Hello, is it me you looking for?" | callmemaybe server
 `).then(() => console.log(`
 
 ${x} created.
