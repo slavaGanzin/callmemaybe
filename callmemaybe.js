@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node-dev
 
 global.config = {}
 Error.stackTraceLimit = Infinity
@@ -6,15 +6,12 @@ Error.stackTraceLimit = Infinity
 for (const f in require('ramda'))
   global[f] = require('ramda')[f]
 
-const {readFile, writeFile} = require('fs').promises
-const dns2 = require('dns2');
-const {promisify} = require('util')
-const exec = promisify(require('child_process').exec)
-const http = require('http')
+const dns2 = require('dns2')
 const daemonizeProcess = require('daemonize-process')
 const yaml = require('yaml')
 const { program } = require('commander')
-const execa = require('execa')
+const server = require('./server')
+const {run, healthcheck} = require('./run')
 
 const pp = x =>
   process.stdout.write(yaml.stringify(x || {}))
@@ -22,93 +19,21 @@ const pp = x =>
 const pe = x =>
   process.stderr.write(yaml.stringify(x || {}))
 
-dns2.pp = (x, comment='') => console.log(comment + join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
+dns2.pp = (x, comment='') =>
+  console.log(comment + join('',values(mapObjIndexed((v,k) => `${k} -> ${join(' ', pluck('address',v))}`, groupBy(x => x.name, x.answers)))))
 
-const running = {}
-
-setInterval(() => {
-  // console.log({running: Object.keys(running)})
-  for (const name in running) {
-    if (running[name].exitCode != null) {
-      delete running[name]
-    }
-  }
-}, 100)
-
-const run = (command, name, opts) => {
-  // console.log({running})
-
-  let r = running[name]
-
-  if (r) {
-    // console.log(running[name].killed, running[name].closed)
-    if (opts.restart) r.kill()
-
-    console.log('already runnning ' + name)
-    return Promise.resolve(r)
-  }
-
-  r  = execa('bash', ['-c', command], opts)
-  if (name) running[name] = r
-  r.stdout.pipe(process.stdout)
-  r.stderr.pipe(process.stderr)
-  // console.log({running})
-  return r
-}
-
-const healthcheck = (c, name) => {
- const r = running[name]
- if (r) return Promise.resolve(r)
-
- if (c.healthcheck)
-    return run(c.healthcheck, `healthcheck ${name}`, {cwd: c.folder || '~'})
-
-  return Promise.reject({})
-}
-
-
-const onetimeServer = ({title = '', redirect}) => {
-  let message = ''
-  let closed = true
-  process.stdin.on("data", data => {
-    closed = false
-    message += data.toString()
-    process.stdout.write(message)
-  })
-  process.stdin.on('close', () => closed = true)
-
-  try {
-    const server = http.createServer(function (req, res) {
-      res.writeHead(200, { 'Content-Type': 'text/plain' })
-      if (redirect) res.writeHead(302, {'Location': redirect });
-      res.write(`callmemaybe: ${title}\n\n${message}`)
-      process.stdin.on("data", data => {
-        res.write(data)
-      })
-
-      if (closed) setTimeout(() => {
-          res.end()
-          console.log('one time server down')
-          process.exit()
-        }, 300)
-
-    }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
-  } catch(e) {
-    console.error(e)
-  }
-}
+if (process.argv.length === 2) process.argv.push('start')
 
 program
   .name('callmemaybe')
   .description('Local DNS server that launch commands if you ask for specific hostname')
   .version(require('./package.json').version)
 
-if (process.argv.length === 2) process.argv.push('start')
 
 program.command('server')
   .option('-r, --redirect <URL>')
   .action((str, options) => {
-    return onetimeServer(str)
+    return server(str)
   })
 
 program.command('start')
