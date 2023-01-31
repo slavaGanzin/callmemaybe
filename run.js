@@ -26,7 +26,7 @@ const run = (command, name, opts = {}) => {
     return Promise.resolve(r)
   }
 
-  r  = execa('bash', ['-c', command], opts)
+  r  = execa('bash', ['-c', '"""'+command+'"""'], opts)
   if (name) running[name] = r
   r.stdout.pipe(process.stdout)
   r.stderr.pipe(process.stderr)
@@ -34,12 +34,12 @@ const run = (command, name, opts = {}) => {
   return r
 }
 
-const healthcheck = (c, name, wait) => {
+const healthcheck = (c, name, wait, opts) => {
  const r = running[name]
  if (r) return Promise.resolve()
 
  if (c.healthcheck)
-    return run(c.healthcheck, `healthcheck ${name}`, {cwd: c.folder || '~'})
+    return run(c.healthcheck, `healthcheck ${name}`, opts)
       .catch(e => {
         if (wait) return healthcheck(c, name, wait)
         throw e

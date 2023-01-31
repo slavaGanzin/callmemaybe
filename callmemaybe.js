@@ -12,6 +12,7 @@ const yaml = require('yaml')
 const { program } = require('commander')
 const {run, healthcheck} = require('./run')
 const http = require('http')
+const userid = require('userid')
 
 const wait = t => new Promise(r => setTimeout(r, t))
 
@@ -90,18 +91,24 @@ program.command('start')
           ttl: 1,
           address: c.ip || '127.0.0.1'
         })
+       const opts = {}
+       if (c.folder) opts.cwd = c.folder
+       if (c.user) opts.uid = userid.uid(c.user)
+       if (c.group) opts.gid = userid.gid(c.user)
 
-       return await healthcheck(c, question.name)
+       console.log(opts)
+
+       return await healthcheck(c, question.name, opts)
        .catch(x => {
-         run(c.start, question.name, {cwd: c.folder})
+         run(c.start, question.name, opts)
            .then(() => console.log(3))
-           .catch(({stderr, stdout}) => {
-             console.log('failed to start', {stderr, stdout})
+           .catch(({stderr, stdout, shortMessage, originalMessage}) => {
+             console.log('failed to start', {shortMessage, originalMessage, stderr, stdout})
              run(`callmemaybe server --title "${question.name} error"`, 'error-server', {input: stderr+stdout, restart: true})
               .catch(console.error)
            })
 
-         return c.healthcheck ? healthcheck(c, question.name, true) : wait(300)
+         return c.healthcheck ? healthcheck(c, question.name, opts, true) : wait(300)
        })
        .then(async () => {
           if(c.redirect) {
