@@ -10,8 +10,8 @@ const dns2 = require('dns2')
 const daemonizeProcess = require('daemonize-process')
 const yaml = require('yaml')
 const { program } = require('commander')
-const server = require('./server')
 const {run, healthcheck} = require('./run')
+const http = require('http')
 
 const wait = t => new Promise(r => setTimeout(r, t))
 
@@ -30,6 +30,39 @@ program
   .name('callmemaybe')
   .description('Local DNS server that launch commands if you ask for specific hostname')
   .version(require('./package.json').version)
+
+
+const server = ({title = '', redirect}) => {
+  let message = ''
+  let closed = true
+  process.stdin.on("data", data => {
+    closed = false
+    message += data.toString()
+    process.stdout.write(message)
+  })
+  process.stdin.on('close', () => closed = true)
+
+  try {
+    const server = http.createServer(function (req, res) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      if (redirect) res.writeHead(302, {'Location': redirect });
+      res.write(`callmemaybe: ${title}\n\n${message}`)
+      process.stdin.on("data", data => {
+        res.write(data)
+      })
+
+      setInterval(() => {
+        if (!closed) return
+        res.end()
+        console.log('one time server down')
+        process.exit()
+      }, 100)
+
+    }).listen({port: 80, host: '0.0.0.0'}, () => console.log('one time server up'))
+  } catch(e) {
+    console.error(e)
+  }
+}
 
 
 program.command('server')
