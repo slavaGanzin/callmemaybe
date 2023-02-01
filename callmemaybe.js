@@ -95,6 +95,7 @@ program.command('start')
        if (c.folder) opts.cwd = c.folder
        if (c.user) opts.uid = userid.uid(c.user)
        if (c.group) opts.gid = userid.gid(c.user)
+       if (c.shell) opts.shell = c.shell
 
        console.log(opts)
 
@@ -141,14 +142,17 @@ program.command('start')
         dns: pathOr('1.1.1.1', ['settings', 'resolvers', 0], config)
       })
       const { name } = question;
-      const lookup = await resolve(question.name)
-      response.answers = lookup.answers
-      response.header.ancount = lookup.header.ancount
-      response.header.arcount = lookup.header.arcount
-      response.header.z = lookup.header.z
-      response.header.ra = lookup.header.ra
-      dns2.pp(response)
-      send(response)
+      resolve(question.name)
+      .then(lookup => {
+        response.answers = lookup.answers
+        response.header.ancount = lookup.header.ancount
+        response.header.arcount = lookup.header.arcount
+        response.header.z = lookup.header.z
+        response.header.ra = lookup.header.ra
+        dns2.pp(response)
+        send(response)
+      })
+      .catch(e => console.error(`error: ${question.name} ${e}`))
     }
   })
 

@@ -146,6 +146,8 @@ localhost:
 #   healthcheck: ~              #any command that checks that project is up, so there is no need to run start command
 #   start:       ~              #command that starts your project
 #   folder:      ~              #folder where command will be running
+#   user:        ~              #user running command, by default same as user of callmemaybe
+#   group:       ~              #group running command
 
 
 #test endpoint. Feel free to remove
