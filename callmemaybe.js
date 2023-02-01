@@ -12,7 +12,6 @@ const yaml = require('yaml')
 const { program } = require('commander')
 const {run, healthcheck} = require('./run')
 const http = require('http')
-const userid = require('userid')
 
 const wait = t => new Promise(r => setTimeout(r, t))
 
@@ -93,8 +92,8 @@ program.command('start')
         })
        const opts = {}
        if (c.folder) opts.cwd = c.folder
-       if (c.user) opts.uid = userid.uid(c.user)
-       if (c.group) opts.gid = userid.gid(c.user)
+       if (c.user) opts.uid = await user2uid(c.user)
+       if (c.group) opts.gid = await group2gid(c.user)
        if (c.shell) opts.shell = c.shell
 
        console.log(opts)

@@ -56,4 +56,7 @@ const healthcheck = (c, name, wait, opts) => {
   return Promise.reject({})
 }
 
-module.exports = {run, healthcheck}
+const user2uid = user => execa(`id -u ${user}`)
+const group2gid = group => execa(`id -g ${group}`)
+
+module.exports = {run, healthcheck, user2uid, group2gid}
