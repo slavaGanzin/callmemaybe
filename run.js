@@ -1,5 +1,6 @@
 const execa = require('execa')
 const running = {}
+const {readFile, writeFile, stat, mkdir, createWriteStream} = require('fs').promises
 
 setInterval(() => {
   // console.log({running: Object.keys(running)})
@@ -10,7 +11,7 @@ setInterval(() => {
   }
 }, 100)
 
-const run = (command, name, opts = {}) => {
+const run = async (command, name, opts = {}) => {
   console.log({run: command, name, opts})
 
   let r = running[name]
@@ -26,7 +27,14 @@ const run = (command, name, opts = {}) => {
     return Promise.resolve(r)
   }
 
-  r  = execa('bash', ['-c', '"""'+command+'"""'], opts)
+  const shell = String(opts.shell || 'bash')
+  opts.shell = false
+  delete opts.input
+  console.log(shell, opts)
+  // r  = execa('"""'+command+'"""', [], opts)
+  r  = execa(shell, ['-c', `"""${command}"""`], opts)
+  .then(console.log)
+  .catch(console.error)
   if (name) running[name] = r
   r.stdout.pipe(process.stdout)
   r.stderr.pipe(process.stderr)
