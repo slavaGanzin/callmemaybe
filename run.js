@@ -37,9 +37,14 @@ const run = async (command, name, opts = {}) => {
   if (name) running[name] = r
   r.stdout.pipe(process.stdout)
   r.stderr.pipe(process.stderr)
-  // console.log({running})
+  console.log({running: keys(running)})
+
   return r
+    .then(tap(console.log))
+    // .catch(console.log)
 }
+
+const kill = names => names.map(x => running[x] && running[x].kill())
 
 const healthcheck = (c, name, retry, opts) => {
   const r = running[name]

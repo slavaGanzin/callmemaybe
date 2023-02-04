@@ -101,7 +101,6 @@ program.command('start')
        return await healthcheck(c, question.name, opts)
        .catch(x => {
          run(c.start, question.name, opts)
-           .then(() => console.log(3))
            .catch(({stderr, stdout, shortMessage, originalMessage}) => {
              console.log('failed to start', {shortMessage, originalMessage, stderr, stdout})
              run(`callmemaybe server --title "${question.name} error"`, 'error-server', {input: stderr+stdout, restart: true})
