@@ -27,14 +27,13 @@ const run = async (command, name, opts = {}) => {
     return Promise.resolve(r)
   }
 
-  const shell = String(opts.shell || 'bash')
+  const [shell, ...args] = String(opts.shell || 'bash -c').split(/\s+/)
   opts.shell = false
   delete opts.input
   console.log(shell, opts)
   // r  = execa('"""'+command+'"""', [], opts)
-  r  = execa(shell, ['-c', `"""${command}"""`], opts)
-  .then(console.log)
-  .catch(console.error)
+  console.log(shell, args)
+  r  = execa(shell, concat(args, [command]), opts)
   if (name) running[name] = r
   r.stdout.pipe(process.stdout)
   r.stderr.pipe(process.stderr)
@@ -42,18 +41,21 @@ const run = async (command, name, opts = {}) => {
   return r
 }
 
-const healthcheck = (c, name, wait, opts) => {
- const r = running[name]
- if (r) return Promise.resolve()
+const healthcheck = (c, name, retry, opts) => {
+  const r = running[name]
+  if (r)
+    return Promise.resolve()
 
- if (c.healthcheck)
-    return run(c.healthcheck, `healthcheck ${name}`, opts)
-      .catch(e => {
-        if (wait) return healthcheck(c, name, wait)
-        throw e
-      })
+  if (!c.healthcheck)
+    return Promise.reject({})
 
-  return Promise.reject({})
+  return run(c.healthcheck, `healthcheck ${name}`, opts)
+    .catch(e => {
+      if (retry > 0) return wait(100)
+        .then(() => healthcheck(c, name, retry-1, opts))
+      throw e
+    })
+
 }
 
 const user2uid = user => execa(`id -u ${user}`)

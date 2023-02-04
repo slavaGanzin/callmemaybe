@@ -108,7 +108,7 @@ program.command('start')
               .catch(console.error)
            })
 
-         return c.healthcheck ? healthcheck(c, question.name, opts, true) : wait(300)
+         return c.healthcheck ? healthcheck(c, question.name, 10, opts) : wait(300)
        })
        .then(async () => {
           if(c.redirect) {
